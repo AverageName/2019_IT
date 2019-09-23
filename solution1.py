@@ -1,4 +1,5 @@
-x = [1.49066127e-06, 1.00024454e-02, 2.00039718e-02, 3.00063867e-02,
+import numpy as np
+xs = [1.49066127e-06, 1.00024454e-02, 2.00039718e-02, 3.00063867e-02,
      4.00101677e-02, 5.00160261e-02, 6.00250086e-02, 7.00386374e-02,
      8.00590993e-02, 9.00894983e-02, 1.00134185e-01, 1.10199182e-01,
      1.20292721e-01, 1.30425906e-01, 1.40613524e-01, 1.50874996e-01,
@@ -24,7 +25,7 @@ x = [1.49066127e-06, 1.00024454e-02, 2.00039718e-02, 3.00063867e-02,
      9.20059099e-01, 9.30038637e-01, 9.40025009e-01, 9.50016026e-01,
      9.60010168e-01, 9.70006387e-01, 9.80003972e-01, 9.90002445e-01]
 
-u = [3.72665317e-06, 6.11356797e-06, 9.92950431e-06, 1.59667839e-05,
+ys = [3.72665317e-06, 6.11356797e-06, 9.92950431e-06, 1.59667839e-05,
      2.54193465e-05, 4.00652974e-05, 6.25215038e-05, 9.65934137e-05,
      1.47748360e-04, 2.23745794e-04, 3.35462628e-04, 4.97955422e-04,
      7.31802419e-04, 1.06476624e-03, 1.53381068e-03, 2.18749112e-03,
@@ -49,19 +50,61 @@ u = [3.72665317e-06, 6.11356797e-06, 9.92950431e-06, 1.59667839e-05,
      7.31802419e-04, 4.97955422e-04, 3.35462628e-04, 2.23745794e-04,
      1.47748360e-04, 9.65934137e-05, 6.25215038e-05, 4.00652974e-05,
      2.54193465e-05, 1.59667839e-05, 9.92950431e-06, 6.11356797e-06]
+left = -1
+#Find ambigious region
+for i in range(1, len(xs)):
+    if xs[i] < xs[i - 1] and left == -1:
+        left = i - 1
+    if left != -1 and xs[i] > xs[i - 1]:
+        right = i - 1
+        break
 
-for i in range(len(x)-1):
-     if x[i+1] < x[i]:
-          i_end = i
-          break
+def interpolate(x0, y0, x1, y1, x):
+    dy = (y1 - y0)/((x1 - x0))
+    return x, y0 + (x - x0) * dy
 
-for i in range(i_end, len(x)-1):
-     if x[i+1] > x[i]:
-          i_start = i
-          break
+def area(xs, ys):
+    ys.insert(0, ys[-1])
+    ys.append(ys[1])
+    sum_ = 0
+    for i in range(1, len(ys) - 1):
+        sum_ += xs[i - 1]*(ys[i + 1] - ys[i - 1])
+    return 1/2 * abs(sum_)
+def diff(middle):
+    nums = []
+    for j in range(1, left + 1):
+        if xs[j] >= middle and xs[j - 1] < middle:
+            nums.append(j - 1)
+            break
+    for j in range(right + 1, len(xs)):
+        if xs[j] >= middle and xs[j - 1] < middle:
+            nums.append(j - 1)
+            break
+    for j in range(left, right + 1):
+        if xs[j] <= middle and xs[j - 1] > middle:
+            nums.append(j - 1)
+            break
+    tmp_x, tmp_y = interpolate(xs[nums[0]], ys[nums[0]], xs[nums[0] + 1], ys[nums[0] + 1], middle)
+    tmp_x1, tmp_y1 = interpolate(xs[nums[1]], ys[nums[1]], xs[nums[0] + 1], ys[nums[0] + 1], middle)
+    tmp_x2, tmp_y2 = interpolate(xs[nums[2]], ys[nums[2]], xs[nums[2] + 1], ys[nums[2] + 1], middle)
+    first_area = area([tmp_x] + xs[nums[0] + 1:nums[2] + 1] + [tmp_x2], [tmp_y] + ys[nums[0] + 1:nums[2] + 1] + [tmp_y2])
+    second_area = area(([tmp_x2] + xs[nums[2] + 1:nums[1]] + [tmp_x1])[::-1], ([tmp_y2] + ys[nums[2] + 1:nums[1]] + [tmp_y1])[::-1])
+    diff = first_area - second_area
+    return diff
+print(diff(0.8224013728092834))
 
-print(f"ambiguous region: [{x[i_start]}, {x[i_end]}]")
-print(f"ambiguous indices are between {i_end} and {i_start}")
+left_x = xs[right]
+right_x = xs[left]
+differ = 1000
+#Bin search point with min diff in areas
+while right_x - left_x > 1e-8:
+    middle = (right_x + left_x) / 2
+    print('Left, right: ', left_x, right_x)
+    differ = diff(middle)
+    print('Diff: ', differ)
+    if differ > 0:
+        left_x = middle
+    else:
+        right_x = middle
+print("Best point is:", right_x) 
 
-# todo: find x0 between x[i_start], x[i_end]
-# e.g.  brute-force search
